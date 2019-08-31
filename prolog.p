@@ -62,11 +62,12 @@ installed on a new machine:
 
 ... *)
 
-
-
-#include "util.h"
-#include "catchint.h"
-#include "libname.h"
+(* Magic incantations needed by FPC *)
+{$modeswitch nonlocalgoto} (* Allow jumping out of procedures *)
+{$modeswitch repeatforward-} (* You know the rules about forward procs *)
+{$notes off} (* Don't warn about unused variables etc. *)
+uses Sysutils, BaseUnix, Unix;
+type integer = longint; (* Forget that 16-bit nonsense *)
 
 label
    100                          (* Return to top level. *),
@@ -74,6 +75,7 @@ label
 
 const
    Version = 'Portable Prolog Release 2.1(j).  Wed Jul 22 16:41:23 PDT 1987.';
+   ProlibName = '/home/mike/src/yprolog/prolib';
 
    MaxFrames = 1000             (* Max. no. of active goals. *);
    LocSize = 2500               (* Max. no. of local variables. *);
@@ -185,7 +187,7 @@ type
          oclass: optype;
          oprec: prec;
          sys: boolean;
-      case pclass: predtype of
+      case pkind: predtype of
          normP: ( proc: clptr );
          evalP: ( routine: evalpred;
                   arity: evalarity )
@@ -302,16 +304,13 @@ procedure InternalError(n: integer);
    forward;
 
 
-procedure CopyArg(src: astring; var dst: stringarg);
+procedure CopyArg(src: astring; var dst: ansistring);
 (* Copy a string from src to dst. *)
    var k: integer;
 begin
-   for k := 1 to ArgLen - 1 do
-      if k <= src.length then
-         dst[k] := stringbuf[src.index + k]
-      else
-         dst[k] := ' ';
-   dst[ArgLen] := ' '
+   dst := '';
+   for k := 1 to src.length do
+      dst := dst + stringbuf[src.index + k];
 end (* CopyArg *);
 
 
@@ -323,23 +322,17 @@ function OpenFile(var f: text; name: astring; dir: inout): boolean;
    Return true if f is successfully opened, and false otherwise.  The
    body of this function is installation-specific.
 *)
-   var namebuf: stringarg;
+   var namebuf: ansistring;
 begin
    CopyArg(name, namebuf);
+   Assign(f, namebuf);
+   {$I-}
    case dir of
-      inZ: begin
-            if CanRead(namebuf) then begin
-               reset(f, namebuf);
-               OpenFile := true
-            end
-            else
-               OpenFile := false
-         end;
-      outZ: begin
-            rewrite(f, namebuf);
-            OpenFile := true
-         end
-   end
+      inZ: reset(f);
+      outZ: rewrite(f);
+   end;
+   {$I+}
+   OpenFile := (IoResult = 0)
 end (* OpenFile *);
 
 
@@ -349,13 +342,15 @@ function OpenLib(var f: text): boolean;
    and open it for input.  Return true if f is successfully opened, and
    false otherwise.  The body of this function is installation-specific.
 *)
-   var envname, name: stringarg;
+   var envname, name: ansistring;
 begin
    envname := 'prolib';
-   if GetEnv(envname, name) then
-      reset(f, name)
+   name := GetEnvironmentVariable(envname);
+   if name <> '' then
+      Assign(f, name)
    else
-      reset(f, ProlibName);
+      Assign(f, ProlibName);
+   reset(f);
    OpenLib := true
 end (* OpenLib *);
 
@@ -366,17 +361,44 @@ procedure CloseFile(var f: text; dir: inout);
    installation-specific.
 *)
 begin
-   flush(f)
+   if dir = OutZ then flush(f)
 end (* CloseFile *);
 
 
 function UserCode(arg: astring): boolean;
 (* A place to put users' own code. *)
-   var argbuf: stringarg;
+   var argbuf: ansistring;
 begin
    CopyArg(arg, argbuf);
-   UserCode := SysCmd(argbuf)
+   UserCode := (fpSystem(argbuf) = 0)
 end (* UserCode *);
+
+
+var intflag: boolean;
+
+
+procedure IntHandler(s: cint); cdecl;
+begin
+   writeln('Interrupted');
+   intflag := true
+end (* IntHandler *);
+
+
+procedure CatchInt;
+   var sig: SignalHandler;
+begin
+   sig := fpSignal(SIGINT, SignalHandler(@IntHandler));
+   intflag := false
+end (* CatchInt *);
+
+
+function TestInt: boolean;
+  var flag: boolean;
+begin
+   flag := intflag;
+   intflag := false;
+   TestInt := flag;
+end (* TestInt *);
 
 
 procedure StartLine;
@@ -1375,7 +1397,7 @@ begin
          oclass := nonO;
          oprec := 0;
          sys := false;
-         pclass := normP;
+         pkind := normP;
          proc := nil
       end;
       atomhwm := atomhwm + newatom.length;
@@ -1468,7 +1490,7 @@ procedure InitAtoms;
       R(w, a);
       with a^ do begin
          sys := true;
-         pclass := evalP;
+         pkind := evalP;
          routine := p;
          arity := m
       end
@@ -2654,7 +2676,7 @@ function AddClause(newclause: term; envp: env; asserta: boolean): boolean;
       end;
       with head^.info.name^ do begin
          if (flag[sysmode] = 0) and (flag[debugging] = 0) and sys or
-              (pclass = evalP) then
+              (pkind = evalP) then
             AddClError(sysprocE);
          if (flag[sysmode] = 1) then sys := true;
          if asserta then
@@ -2824,7 +2846,7 @@ begin
                if TestInt then Abort;
                if flag[tracing] = 1 then Trace(goalD, callp, callenv);
                with callp^.info.name^ do
-                  case pclass of
+                  case pkind of
                      normP: begin
                            clausep := proc;
                            state := procQ
@@ -3231,7 +3253,7 @@ function CallEvalPred (* (call: term; callenv: env; routine: evalpred;
    begin
       if argval[1]^.info.tag <> funcT then PredError(argsE);
       with argval[1]^.info.name^ do begin
-         if (flag[debugging] = 0) and sys or (pclass = evalP) then
+         if (flag[debugging] = 0) and sys or (pkind = evalP) then
             PredError(sysprocE);
          NewEnv(e1, nil, 0, proc, 0)
       end;
@@ -3463,18 +3485,15 @@ procedure ConsultArgs;
 (* Consult files named as arguments. *)
    var
       i, j: integer;
-      arg: stringarg;
+      arg: ansistring;
       success: boolean;
       e: env;
 begin
    for i := 1 to argc - 1 do begin
-      argv(i, arg);
+      arg := ParamStr(i);
       StartAtom;
-      j := 1;
-      while arg[j] <> ' ' do begin
+      for j := 1 to length(arg) do
          AtomChar(arg[j]);
-         j := j + 1
-      end;
       NewEnv(e, nil, 0, nil, 0);
       success :=
          Execute(MakeFunc(callA, 1, MakeFunc(consultA, 1,
