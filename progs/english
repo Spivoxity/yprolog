@@ -1,0 +1,28 @@
+/* Example 9.8 from Dec-10 manual. */
+
+?- op(900,xfx,=>).
+?- op(800,xfy,&).
+?- op(300,xfx,:).
+
+sentence(P) --> np(X,P1,P), vp(X,P1).
+
+np(X,P1,P) --> det(X,P2,P1,P), noun(X,P3), rel_cl(X,P3,P2).
+np(X,P,P) --> p_name(X).
+
+vp(X,P) --> t_vb(X,Y,P1), np(Y,P1,P).
+vp(X,P) --> i_vb(X,P).
+
+rel_cl(X,P1,P1&P2) --> [that], vp(X,P2).
+rel_cl(X,P1,P1&P2) --> np(Y,P3,P2), t_vb(Y,X,P3).
+rel_cl(_,P,P) --> [].
+
+det(X,P1,P2, all(X):(P1=>P2) ) --> [every].
+det(X,P1,P2, exists(X):(P1&P2) ) --> [a].
+
+noun(X, man(X) ) --> [man].
+noun(X, woman(X) ) --> [woman].
+
+p_name(john) --> [john].
+
+t_vb(X,Y, loves(X,Y) ) --> [loves].
+i_vb(X, lives(X) ) --> [lives].

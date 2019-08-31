@@ -1,0 +1,15 @@
+?- op(40, xfy, .).
+
+rank(L, M) :- reverse(L, L1), rank1(L1, M1), reverse(M1, M).
+
+rank1([], []) :- !.
+rank1(X.L, R.M) :- pos(X, L, R), rank1(L, M).
+
+pos(X, [], 1) :- !.
+pos(X, Y.L, R) :- X =< Y, !, pos(X, L, R).
+pos(X, Y.L, R) :- X > Y, !, pos(X, L, R1), R is R1 + 1.
+
+reverse(A, B) :- rev1(A, [], B).
+
+rev1([], Z, Z) :- !.
+rev1(X.A, Z, B) :- rev1(A, X.Z, B).

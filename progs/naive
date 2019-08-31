@@ -1,0 +1,11 @@
+sort(A, B) :- perm(A, B), ord(B).
+
+perm([], []) :- !.
+perm(AX, [X,..B]) :- delete(AX, X, A), perm(A, B).
+
+delete([X,..A], X, A).
+delete([X,..A], Y, [X,..B]) :- delete(A, Y, B).
+
+ord([]) :- !.
+ord([X]) :- !.
+ord([X,Y,..A]) :- X =< Y, ord([Y,..A]).

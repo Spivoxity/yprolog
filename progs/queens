@@ -1,0 +1,35 @@
+/***********************/
+/*  N Queens Problem.  */
+/***********************/
+
+?- op(100, xfx, in).
+?- op(90,  xfx, ..).
+?- op(50,  xfx, free_on).
+?- op(50,  xfx, safe_from).
+
+try(N) :- queens(N, S), show(S, N).
+
+queens(N, S) :- qp(1, N, S, empty).
+
+qp(X, N, [Y | S], B) :-
+   X =< N, Y in 1 .. N, square(X, Y) free_on B,
+   X1 is X + 1, qp(X1, N, S, occupy(square(X, Y), B)).
+qp(X, N, [], _) :- X > N.
+
+S1 free_on occupy(S2, B) :- !, S1 safe_from S2, S1 free_on B.
+_ free_on empty.
+
+square(X1, Y1) safe_from square(X2, Y2) :-
+   Y1 =\= Y2, X1 + Y1 =\= X2 + Y2, X1 - Y1 =\= X2 - Y2.
+
+Lo in Lo .. Hi :- Lo =< Hi.
+N in Lo .. Hi :- Lo < Hi, Lo1 is Lo + 1, N in Lo1 .. Hi.
+
+show([], N) :- !.
+show([K|L], N) :- line(K, 1, N), show(L, N).
+
+line(K, M, N) :- M > N, !, nl.
+line(K, M, N) :- element(K, M), M1 is M + 1, line(K, M1, N).
+
+element(M, M) :- !, write(' Q').
+element(K, M) :- write(' .').

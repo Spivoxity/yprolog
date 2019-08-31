@@ -1,0 +1,10 @@
+?- op(350, xfx, **).
+
+diff(X,X,1) :- !.
+diff(Y,X,1) :- atomic(Y), !.
+diff(F+G,X,F1+G1) :- !, diff(F,X,F1), diff(G,X,G1).
+diff(F*G,X,F1*G+F*G1) :- !, diff(F,X,F1), diff(G,X,G1).
+diff(F**G,X,F**G*(G1*log(F)+F1*G/F)) :- !, diff(F,X,F1), diff(G,X,G1).
+diff(F/G,X,F1/G-F*G1/G**2) :- !, diff(F,X,F1), diff(G,X,G1).
+diff(log(F),X,F1/F) :- !, diff(F,X,F1).
+diff(exp(F),X,exp(F)*F1) :- !, diff(F,X,F1).

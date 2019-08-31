@@ -1,0 +1,24 @@
+?- list.
+
+sort([], []) :- !.
+
+sort([X], [X]) :- !.
+
+sort([X|L], M) :-
+   partition(L, X, Ll, Lr),
+   sort(Ll, Ml), sort(Lr, Mr),
+   append(Ml, [X|Mr], M).
+
+partition([], _, [], []) :- !.
+
+partition([Y|L], X, [Y|Ll], Lr) :-
+   Y =< X, !, partition(L, X, Ll, Lr).
+
+partition([Y|L], X, Ll, [Y|Lr]) :-
+   Y >= X, partition(L, X, Ll, Lr).
+
+append([], M, M) :- !.
+
+append([X | L], M, [X | N]) :-
+   append(L, M, N).
+

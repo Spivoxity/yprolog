@@ -1,0 +1,4 @@
+ackermann(0, N, A) :- !, A is N + 1.
+ackermann(M, 0, A) :- !, M1 is M - 1, ackermann(M1, 1, A).
+ackermann(M, N, A) :-
+    M1 is M - 1, N1 is N - 1, ackermann(M, N1, A1), ackermann(M1, A1, A).

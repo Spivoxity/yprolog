@@ -1,0 +1,2 @@
+append([],B,B).
+append([X|A],B,[X|C]) :- append(A,B,C).

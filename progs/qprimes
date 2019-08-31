@@ -1,0 +1,20 @@
+primes(Limit, Ps) :-
+   integers(2, Limit, Is), sqrt(Limit, Sqrt), sift(Is, Sqrt,  Ps).
+
+integers(Low, High, [Low | Rest]) :-
+   Low =< High, !, M is Low + 1, integers(M, High, Rest).
+integers(_, _, []).
+
+sift([], N, []) :- !.
+sift([I | Is], N, [I | Is]) :- I > N, !.
+sift([I | Is], N, [I | Ps]) :- remove(I, Is, New), sift(New, N, Ps).
+
+remove(P, [], []) :- !.
+remove(P, [I | Is], [I | Nis]) :-
+   not(0 is I mod P), !, remove(P, Is, Nis).
+remove(P, [I | Is], Nis) :- 0 is I mod P, !, remove(P, Is, Nis).
+
+sqrt(N, S) :- sqrt1(N, 1, S).
+
+sqrt1(N, R, S) :- R * R > N, !, S is R - 1.
+sqrt1(N, R, S) :- R1 is R + 1, sqrt1(N, R1, S).

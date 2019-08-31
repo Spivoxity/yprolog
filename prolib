@@ -1,0 +1,690 @@
+/* ...
+
+PROLIB
+
+Version = 'Portable Prolog Release 2.1(j).  Wed Jul 22 16:41:23 PDT 1987.';
+
+J.M. Spivey.
+
+This file contains standard clauses and operator
+declarations for the portable Prolog system.
+
+... */
+
+
+/* Standard Operators. */
+
+?-($op(1200,  fx, (?-))).
+?- $op(1200, xfx, :-).
+?- $op(1000, xfy, ',').
+?- $op(1200, xfx, -->).
+?- $op(1100, xfy, ;).
+?- $op(1050, xfy, ->).
+?- $op( 800,  fy, not).
+?- $op( 800,  fy, spy).
+?- $op( 800,  fy, nospy).
+?- $op( 750, xfy, '.').
+?- $op( 700, xfx, =).
+?- $op( 700, xfx, \=).
+?- $op( 700, xfx, ==).
+?- $op( 700, xfx, \==).
+?- $op( 700, xfx, =:=).
+?- $op( 700, xfx, =\=).
+?- $op( 700, xfx, <).
+?- $op( 700, xfx, >).
+?- $op( 700, xfx, =<).
+?- $op( 700, xfx, >=).
+?- $op( 700, xfx, is).
+?- $op( 700, xfx, =..).
+?- $op( 500, yfx, +).
+?- $op( 500, yfx, -).
+?- $op( 400, yfx, *).
+?- $op( 400, yfx, /).
+?- $op( 400, yfx, mod).
+?- $op( 300,  fy, ~).
+
+
+/* Internal. */
+
+/*
+
+The following clauses are used internally by the interpreter.
+
+*/
+
+(P, Q) :- P, Q.
+
+(P -> Q; R) :- P, !, Q.
+(P -> Q; R) :- !, R.
+(P; Q) :- P.
+(P; Q) :- Q.
+
+repeat.  /* This is patched to give an infinite clause chain. */
+
+
+/* Arithmetic. */
+
+X =:= Y :- Z is X, Z is Y.
+
+X =\= Y :- Z is X, Z is Y, !, fail.
+X =\= Y.
+
+X > Y :- Y < X.
+
+X =< Y :- X < Y, !.
+X =< Y :- Z is X, Z is Y.
+
+X >= Y :- Y < X, !.
+X >= Y :- Z is X, Z is Y.
+
+
+/* Input / Output. */
+
+read(X) :- $read(X, _).
+write(X) :- $write(X, 1).
+writeq(X) :- $write(X, 2).
+display(X) :- $write(X, 3).
+
+print(X) :-
+   $flag(3,F3), $setflg(3,0),
+   $flag(7,F7), $setflg(7,1),
+   $flag(8,F8), $setflg(8,0),
+   $print1(X),
+   $setflg(3,F3),
+   $setflg(7,F7),
+   $setflg(8,F8).
+
+$print1(X) :- portray(X), !.
+$print1(X) :- writeq(X).
+
+get(X) :- repeat, get0(Y), $nonsp(Y), !, X = Y.
+
+skip(X) :- Y is X, repeat, get0(Y), !.
+
+tab(N) :- N =:= 0, !.
+tab(N) :- N > 0, write(' '), N1 is N - 1, tab(N1).
+
+$response(X) :-
+   repeat, $resp1(Y), !, skipln, name(X,[Y]).
+
+$resp1(Y) :- eoln, Y is " ".
+$resp1(Y) :- get0(Y), $nonsp(Y).
+
+skipln :- repeat, $skip1, !, get0(_).
+
+$skip1 :- eoln.
+$skip1 :- get0(_), fail.
+
+seen :- seeing(F), close(F).
+
+told :- telling(F), close(F).
+
+$uio(G) :-
+   seeing(Fi), telling(Fo),
+   see(user), tell(user),
+   $uio1(G, Fi, Fo), !.
+
+$uio1(G,Fi,Fo):-
+   G, see(Fi), tell(Fo).
+$uio1(_,Fi,Fo) :-
+   see(Fi), tell(Fo), fail.
+
+
+/* Consult / Reconsult */
+
+consult(F) :- $consult(F,consult).
+
+reconsult(F) :-
+   retractall($done(_)),
+   $consult(F,reconsult),
+   retractall($done(_)).
+
+$consult(F,R) :-
+   seeing(F0), close(F), see(F),
+   telling(G0), tell(user),
+   repeat, $prompt, read(X), nonvar(X), $crunch(X,R),
+   $setflg(1,0),
+   seen, see(F0),
+   writeq(F), write(' '), write(R), write('ed.'), nl,
+   tell(G0), !.
+
+$prompt :- seeing(user), !, write('| ').
+$prompt.
+
+$crunch((?- end),R) :- !.
+$crunch((?- X),R) :- !, call(X), !, fail.
+$crunch(X,R) :-
+   $tran(X,Y), $head(Y,H), $erase(R,H),
+   call(assertz(Y)), !, fail.
+
+$head((A :- B),A) :- !.
+$head(A,A).
+
+$erase(consult,H) :- !.
+$erase(reconsult,H) :- $done(H), !.
+$erase(reconsult,H) :-
+   nonvar(H), functor(H,F,N), functor(P,F,N),
+   retractall(P),
+   $respy(P),
+   asserta($done(P)), !.
+$erase(R,H).
+
+$tran(X,Y) :- $gtran(X,Y), !.
+$tran(X,X).
+
+$respy(P) :-
+   $spypt(P,_,_), !,
+   $mkspy(P,Body),
+   asserta((P :- Body)).
+$respy(P).
+
+
+/* Grammar rules. */
+
+$mkgoal(NT,S0,S,Goal) :-
+   NT =.. [Name|Params],
+   $cat(Params,[S0,S],Args),
+   Goal =.. [Name|Args].
+
+phrase(NT,S) :-
+   $mkgoal(NT,S,[],Goal), Goal.
+
+$gtran((LHS --> RHS),Clause) :-
+   $trhs(RHS,cont([],S,bound,true),K0),
+   $tlhs(LHS,K0,S,Clause).
+
+$tlhs((NT,Terms),cont(T0,S0,_,C),S,Clause) :-
+   !,
+   length(Terms,_),
+   $cat(Terms,S,S2),
+   $cat(T0,S0,S1),
+   $mkgoal(NT,S1,S2,Head),
+   $mkclause(Head,C,Clause).
+$tlhs(NT,K0,S,Clause) :-
+   $tlhs((NT,[]),K0,S,Clause).
+
+$mkclause(Head,true,Head) :- !.
+$mkclause(Head,Body,(Head :- Body)).
+
+$trhs(V,_,_) :-
+   var(V), !, fail.
+$trhs((R1,R2),K,K0) :-
+   !,
+   $trhs(R2,K,K1),
+   $trhs(R1,K1,K0).
+$trhs((R1;R2),cont(T,S,_,C),cont([],S0,free,C0)) :-
+   !,
+   K1 = cont(T,S,bound,true),
+   $trhs(R1,K1,K2), $norm(K2,cont([],S0,free,D1)),
+   $trhs(R2,K1,K3), $norm(K3,cont([],S0,free,D2)),
+   $and((D1;D2),C,C0).
+$trhs({G},K,cont([],S0,free,C0)) :-
+   !,
+   $norm(K,cont([],S0,free,C1)),
+   $comp(G,C1,C0).
+$trhs(!,K,K0) :-
+   !,
+   $trhs({!},K,K0).
+$trhs(Terms,cont(T,S,B,C),cont(T0,S,B,C)) :-
+   $islist(Terms), !, length(Terms,_),
+   $cat(Terms,T,T0).
+$trhs(NT,cont(T,S,_,C),cont([],S0,free,C0)) :-
+   !,
+   $cat(T,S,S1),
+   $mkgoal(NT,S0,S1,G),
+   $and(G,C,C0).
+
+$and(true,C,C) :- !.
+$and(G,true,G) :- !.
+$and(G,C,(G,C)).
+
+$comp(G,C,C1) :-
+   var(G), !, $and(call(G),C,C1).
+$comp((G1,G2),C,C2) :-
+   !, $comp(G2,C,C1), $comp(G1,C1,C2).
+$comp(G,C,C1) :-
+   $and(G,C,C1).
+
+$norm(cont([],S,free,C),cont([],S,free,C)) :- !.
+$norm(cont(T,S,_,C),cont([],S1,free,C1)) :-
+   $cat(T,S,S2),
+   $and(S1 = S2,C,C1).
+
+$cat([],S,S) :- !.
+$cat([T|Ts],S,[T|S0]) :- $cat(Ts,S,S0).
+
+$islist([]) :- !.
+$islist([_|_]).
+
+
+/* Metalogical. */
+
+nonvar(X) :- var(X), !, fail.
+nonvar(X).
+
+atomic(X) :- atom(X), !.
+atomic(X) :- integer(X).
+
+X == Y :- X \== Y, !, fail.
+X == Y.
+
+X \== Y :- $same(X, Y), !, fail.
+X \== Y.
+
+$same(X, Y) :- var(X), !, var(Y), $samev(X, Y).
+$same(X, Y) :- var(Y), !, fail.
+$same(X, Y) :- atomic(X), !, X = Y.
+$same(X, Y) :- atomic(Y), !, fail.
+$same(X, Y) :- X =.. [F | Ax], Y =.. [F | Ay], $samea(Ax, Ay).
+
+$samea([], []) :- !.
+$samea([X | Ax], [Y | Ay]) :- $same(X, Y), $samea(Ax, Ay).
+
+$samev(X, Y) :- X = 42, var(Y), !, fail.
+$samev(X, Y).
+
+T =.. [F | A] :-
+   nonvar(T), !, functor(T, F, _), $alist(1, T, A).
+T =.. [F | A] :-
+   atom(F), !, length(A, N), functor(T, F, N), $alist(1, T, A).
+T =.. [T] :-
+   integer(T).
+
+$alist(I, T, A) :-
+   arg(I, T, X), !, A = [X | A1],
+   I1 is I + 1, $alist(I1, T, A1).
+$alist(_, _, []).
+
+assert(X) :- $addcl(X,2).
+asserta(X) :- $addcl(X,1).
+assertz(X) :- $addcl(X,2).
+
+clause(P,Q) :- $clause(P,Q,N).
+
+deny(P,Q) :- $clause(P,Q,N), $zap(N).
+
+$clause(P,Q,N) :-
+	$clenv(P,N),
+	repeat,
+	$trycl(P,N,P0,Q0,W),
+	(  W = no, !, fail ;
+	   P = P0, Q = Q0 ;
+	   $advcl(N), fail  ).
+
+$trycl(P,N,P0,Q0,yes) :- $getcl(P,N,P0,Q0), !.
+$trycl(_,_,_,_,no).
+
+retract((P :- Q)) :- !, deny(P, Q).
+retract(P) :- deny(P, true).
+
+retractall(P) :- deny(P, _), fail.
+retractall(_).
+
+
+/* Listing. */
+
+listing(A) :- $list(A).
+listing(A) :- atom(A).
+
+$list(A) :-
+	atom(A), functor(P,A,1), $clenv(P,N), nl,
+	repeat, $list1(P,N), !, fail.
+
+$list1(P,N) :-
+	$getcl(P,N,P0,Q0),
+	$show(P0,Q0), write(' .'), nl, nl,
+	$advcl(N),
+	!, fail.
+$list1(_,_).
+
+$show(P,true) :- !, writeq(P).
+$show(P,Q) :-
+   writeq(P), write(' :- '), nl,
+   tab(3), $showb(Q,3).
+
+$showb((P;Q),N) :-
+   !, $show2(P,N), nl,
+   $outdent(';  ',N),
+   $showb(Q,N).
+$showb(P,N) :- $show2(P,N).
+
+$show2((P->Q),N) :-
+   !, $show1(P,N), nl,
+   $outdent('-> ',N),
+   $show2(Q,N).
+$show2(P,N) :- $show1(P,N).
+
+$show1((P,Q),N) :-
+   !, $showg(P,N), write(','), nl,
+   tab(N), $show1(Q,N).
+$show1(P,N) :- $showg(P,N).
+
+$showg(V,N) :-
+   var(V), !, writeq(V).
+$showg(P,N) :-
+   (  P = (_;_); P = (_->_); P = (_,_)  ), !,
+   write('(  '), N3 is N + 3,
+   $showb(P,N3), write('  )').
+$showg(not P,N) :-
+   !, write('not '), N4 is N + 4, $showg(P,N4).
+$showg(P,N) :- writeq(P).
+
+$outdent(X,N) :- N3 is N - 3, tab(N3), write(X).
+
+
+/* Miscellaneous. */
+
+trace :- $setflg(3,1).
+notrace :- $setflg(3,0).
+
+(P -> Q) :- P, !, Q.
+
+true.
+
+X = X.
+
+X \= X :- !, fail.
+X \= Y.
+
+not P :- P, !, fail.
+not P.
+
+op(P, F, L) :- length(L,_), !, $opa(P, F, L).
+op(P, F, A) :- $op(P, F, A).
+
+$opa(P, F, []) :- !.
+$opa(P, F, [A|L]) :- $op(P, F, A), $opa(P, F, L).
+
+length(V,_) :- var(V), !, fail.
+length([],0) :- !.
+length([_|L],N1) :- length(L,N), N1 is N+1.
+
+
+/* Top Level. */
+
+$top :-
+   repeat,
+   $setflg(5,0), $setflg(6,1), $setflg(7,0), $setflg(8,0),
+   see(user), tell(user),
+   $flag(2,BrkLevel), $toppr(BrkLevel), $read(X,VList),
+   $okcmd(X), $exec(X,VList).
+
+$toppr(0) :- !, nl, write('?- ').
+$toppr(N) :- nl, write(N), write(' ?- ').
+
+$okcmd(X) :- nonvar(X), functor(X,A,_), atom(A).
+
+$exec(end,_) :- !.
+$exec((?- end),_) :- !.
+$exec([F|A],_) :- !, $cnslta([F|A]), fail.
+$exec(X,_) :- $localcmd(X), !.
+$exec(X,V) :- $exec1(X,V), !, tell(user), write(yes), nl, fail.
+$exec(_,_) :- tell(user), write(no), nl, fail.
+
+$exec1(G,[]) :- !, G.
+$exec1(G,V) :- G, $uio($soln(V)).
+
+$soln(V) :- $psoln(V), write(' '), $response(X), X \= ';'.
+
+$psoln([B]) :- !, $psoln1(B).
+$psoln([B|A]) :- $psoln1(B), write(','), $psoln(A).
+
+$psoln1(B) :-
+   B =.. [V,T], nl, write(V), write(' = '), writeq(T).
+
+$cnslta([]) :- !.
+$cnslta([F|A]) :- $cnslt(F), $cnslta(A).
+
+$cnslt(~F) :- !, call(reconsult(F)).
+$cnslt(F) :- call(consult(F)).
+
+break :-
+   nl, write('[Break]'), nl,
+   $flag(5,F5), $flag(6,F6), $flag(7,F7), $flag(8,F8),
+   $flag(2,OldL), BrkL is OldL + 1, $setflg(2,BrkL),
+   $top, !,
+   $setflg(2,OldL),
+   $setflg(5,F5), $setflg(6,F6), $setflg(7,F7), $setflg(8,F8),
+   nl, write('[End break]'), nl.
+
+
+/* Shell. */
+
+shell(X) :- name(A, X), $ucode(A).
+
+sh :- $ucode(sh).
+
+
+/* Spy package */
+
+?- $setflg(1,1).
+
+$mkspy(Head, ($a, !, $b(Head))).
+
+$a :- $flag(5,1), $setflg(5,0), !, fail.
+$a.
+
+$b(Goal) :-
+   $flag(6,Level), L1 is Level+1, $setflg(6,L1),
+   $monitor(Level,Goal).
+
+$monitor(Level,Goal) :-
+   $port(Level,call,Goal,Action), Action,
+   $enter(Level,Goal).
+$monitor(Level,Goal) :-
+   $flag(7,2), !, $retry(Level,Goal).
+$monitor(Level,Goal) :-
+   $port(Level,fail,Goal,Action), Action,
+   !, fail.
+$monitor(Level,Goal) :-
+   $flag(7,2), !, $retry(Level,Goal).
+
+$enter(Level,Goal) :-
+   $setflg(5,1),
+   Goal,
+   (  $port(Level,exit,Goal,Action), Action
+   ;  $port(Level,redo,Goal,Action), Action,
+      fail  ).
+
+$retry(Level,Goal) :-
+   $setflg(7,0), $setflg(6,Level),
+   nl, write('[Retry]'), nl,
+   Goal.
+
+$port(Level,_,_,true) :-
+   $flag(7,1), $flag(8,L1), Level \= L1, !.
+$port(Level,Port,Goal,Action) :-
+   $spypt(Goal,_,_), !,
+   $setflg(7,0),
+   $uio($port1(Level,Port,Goal,Action)).
+$port(_,_,_,true).
+
+$port1(Level,Port,Goal,Action) :-
+   $pmess(Level,Port,print(Goal)),
+   repeat,
+   $response(X),
+   $action(X,Level,Port,Goal,Action), !.
+
+$action(X,Level,Port,Goal,_) :-
+   $switch(X), !, $pmess(Level,Port,print(Goal)), fail.
+$action(X,Level,Port,Goal,_) :-
+   $reprint(X,Port,Goal,Print), !,
+   $pmess(Level,Port,Print),
+   fail.
+$action(c,_,_,_,true) :- !.
+$action(' ',_,_,_,true) :- !.
+$action(';',_,exit,_,fail) :- !.
+$action(';',_,_,_,_) :- $nothere.
+$action(s,Level,Port,_,true) :-
+   (  Port = call; Port = redo  ), !,
+   $setflg(7,1), $setflg(8,Level).
+$action(s,_,_,_,_) :- $nothere.
+$action(f,_,call,_,fail) :- !.
+$action(f,_,_,_,(!, fail)) :- !.
+$action(r,_,fail,_,fail) :-
+   !, $setflg(7,2).
+$action(r,_,_,_,(!, fail)) :-
+   !, $setflg(7,2).
+$action(o,_,_,_,true) :-
+   !, nodebug.
+$action(h,Level,Port,Goal,_) :-
+   !, $help, $pmess(Level,Port,print(Goal)), fail.
+$action(_,_,_,_,_) :-
+   write('Action (h for help) ? '), fail.
+
+$switch(a) :- abort.
+$switch(b) :- break.
+$switch(e) :- halt.
+$switch(t) :- trace.
+$switch(n) :- notrace.
+
+$reprint(p,_,G,print(G)).
+$reprint(d,_,G,display(G)).
+$reprint(w,_,G,writeq(G)).
+$reprint(';',redo,G,print(G)).
+$reprint(f,fail,G,print(G)).
+$reprint(r,call,G,print(G)).
+
+$nothere :-
+   write('[Option not available at this port.]'), nl, fail.
+
+$help :-
+   nl,
+   write('Debugging options:'), nl,
+   nl,
+   write('   <NL>  continue     p  print'), nl,
+   write('      c  continue     d  display'), nl,
+   write('      s  skip         w  writeq'), nl,
+   write('      f  fail'), nl,
+   write('      ;  redo         t  trace'), nl,
+   write('      r  retry        n  notrace'), nl,
+   write('                      o  off (nodebug)'), nl,
+   write('      a  abort'), nl,
+   write('      b  break        h  help'), nl,
+   write('      e  exit'), nl.
+
+$pmess(Level,Port,PrintG) :-
+   nl, write('** ('), write(Level), write(') '),
+   $pname(Port,Name), write(Name), write(' '),
+   PrintG, write(' ? ').
+
+$pname(call,'CALL') :- !.
+$pname(exit,'EXIT') :- !.
+$pname(redo,'REDO') :- !.
+$pname(fail,'FAIL').
+
+spy List :-
+   length(List,_), !, $spy1(List).
+spy Spec :-
+   $spy0(Spec).
+
+$spy0(Spec) :-
+   $spec(Spec,Func,Arity,_),
+   $tryspy(Spec,Func,Arity).
+
+$spy1([]) :- !.
+$spy1([Spec|Rest]) :- $spy0(Spec), $spy1(Rest).
+
+$tryspy(_,Func,Arity) :-
+   var(Arity), !, $tryspyall(Func).
+$tryspy(_,Func,Arity) :-
+   $spy(Func,Arity), !.
+$tryspy(Spec,_,_) :-
+   write('There is already a spy-point on '),
+   write(Spec), write('.'), nl.
+
+$spy(Func,Arity) :-
+   $spypt(_,Func,Arity), !, fail.
+$spy(Func,Arity) :-
+   functor(Head,Func,Arity),
+   $warn(Head,Func,Arity),
+   $mkspy(Head,Body),
+   asserta((Head :- Body)),
+   assert($spypt(Head,Func,Arity)),
+   write('Spy-point placed on '),
+   $prspec(Func,Arity), write('.'), nl.
+
+$warn(Head, Func, Arity) :-
+   not clause(Head,_), !,
+   write('Warning: there are no clauses for '),
+   $prspec(Func,Arity), write('.'), nl.
+$warn(_,_,_).
+
+$tryspyall(Func) :-
+   functor(Proto, Func, 1), $clenv(Proto, N), $spyall(Proto, N), fail.
+$tryspyall(Func) :-
+   $spypt(_,Func,_), !.
+$tryspyall(Func) :-
+   write('There are no clauses for '),
+   write(Func), write(' - nothing done.'), nl.
+
+$spyall(Proto,N) :-
+   repeat,
+   (  $getcl(Proto,N,Head,Body)
+   -> functor(Head,Func,Arity),
+      $advcl(N),
+      $spy(Func,Arity),
+      fail,
+      var(Body)
+   ;  true),
+   !.
+
+nospy List :-
+   length(List,_), !, $nospy1(List).
+nospy Spec :-
+   $nospy0(Spec).
+
+$nospy0(Spec) :-
+   $spec(Spec,Func,Arity,A),
+   $tryrem(Spec,Func,Arity,A).
+
+$nospy1([]) :- !.
+$nospy1([Spec|Rest]) :- $nospy0(List), $nospy1(Rest).
+
+$tryrem(_,Func,Arity,A) :-
+   $spypt(_,Func,A), !,
+   $remove(Func,Arity).
+$tryrem(Spec,_,_,_) :-
+   write('There is no spy-point on '),
+   write(Spec), write('.'), nl.
+
+$remove(Func,Arity) :-
+   deny($spypt(Head,Func,Arity),_),
+   $mkspy(Head,Body),
+   deny(Head,Body),
+   write('Spy-point on '),
+   $prspec(Func,Arity), write(' removed.'), nl,
+   fail.
+$remove(_,_).
+
+$prspec(Func,Arity) :-
+   $spec(Spec,Func,Arity,_), write(Spec).
+
+nodebug :-
+   deny($spypt(Head,_,_),_),
+   $mkspy(Head,Body),
+   deny(Head,Body),
+   fail.
+nodebug :-
+   write('All spy-points removed.'), nl.
+
+debugging :-
+   $spypt(_,_,_), !,
+   write('There are spy-points on the following procedures:'), nl,
+   nl,
+   $listspy,
+   nl.
+debugging :-
+   write('There are no spy-points set.'), nl.
+
+$listspy :-
+   $spypt(_,Func,Arity),
+   tab(8), $prspec(Func,Arity), nl,
+   fail.
+$listspy.
+
+$spec(Spec,Func,Arity,Arity) :-
+   Spec =.. [Func,Arity], integer(Arity), !, Arity >= 0.
+$spec(Func,Func,_,_) :- atom(Func).
+
+

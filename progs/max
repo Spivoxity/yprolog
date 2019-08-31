@@ -1,0 +1,9 @@
+max(X, L) :- member(X, L), dominates(X, L).
+
+member(X, [X|_]).
+
+member(X, [_|L]) :- member(X, L).
+
+dominates(X, []) :- !.
+
+dominates(X, [Y|L]) :- X >= Y, dominates(X, L).

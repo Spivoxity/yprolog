@@ -1,0 +1,17 @@
+sort(A, B) :- sort1(A, [], B).
+
+sort1([], Z, Z) :- !.
+
+sort1([X], Z, [X|Z]) :- !.
+
+sort1([X|A], Z, B) :-
+   partition(A, X, Al, Ar),
+   sort1(Al, [X|Z1], B), sort1(Ar, Z, Z1).
+
+partition([], _, [], []) :- !.
+
+partition([Y|L], X, [Y|Ll], Lr) :-
+   Y =< X, !, partition(L, X, Ll, Lr).
+
+partition([Y|L], X, Ll, [Y|Lr]) :-
+   Y >= X, partition(L, X, Ll, Lr).

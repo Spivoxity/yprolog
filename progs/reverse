@@ -1,0 +1,4 @@
+reverse(X,Y) :- rev1(X,Y,[]).
+
+rev1([],Y0,Y0).
+rev1([A|X],Y,Y0) :- rev1(X,Y,[A|Y0]).

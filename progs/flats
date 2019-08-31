@@ -1,0 +1,32 @@
+/* Alex Goodall's Flat Planning Example. */
+
+plan(FD,W1,D1,W2,D2) :-
+	front_room(FD,W1,D1),
+	opposite(D1,D2),
+	room(W2,D2),
+	non_opposite(W1,W2).
+
+front_room(FD,W,D) :-
+	direction(FD),
+	room(W,D),
+	FD \= W, FD \= D.
+
+room(W,D) :-
+	direction(W),
+	W \= north,
+	direction(D),
+	D \= W.
+
+direction(north).
+direction(south).
+direction(east).
+direction(west).
+
+opposite(north,south).
+opposite(south,north).
+opposite(east,west).
+opposite(west,east).
+
+non_opposite(X,Y) :-
+	opposite(X,Z),
+	Z \= Y.

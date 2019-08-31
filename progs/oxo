@@ -1,0 +1,91 @@
+/* Noughts and crosses */
+
+evaluate(Player, State, 1) :-			/* Win */
+	win(Player, State), !.
+evaluate(Player, State, ~1) :-			/* Lose */
+	opponent(Player, Opponent),
+	win(Opponent, State), !.
+evaluate(Player, State, 0) :-			/* Draw */
+	not (/* Exists N . */ move(N, Player, State, _)), !.
+evaluate(Player, State, Value) :-
+	bestmove(Player, State, move(Move, Value)).
+
+bestmove(Player, State, move(N,1)) :-		/* Winning move */
+	move(N, Player, State, State1), win(Player, State1), !.
+bestmove(Player, State, move(N, Value)) :-	/* Forced move */
+	opponent(Player, Opponent),
+	move(N, Opponent, State, State1),
+	win(Opponent, State1), !,
+	move(N, Player, State, State2),
+	evaluate(Opponent, State2, Value2),
+	Value is ~Value2.
+bestmove(Player, State, Move) :-
+	bestmove1(1, Player, State, move(none, ~1000), Move).
+
+bestmove1(Next, _, _, Current, Current) :-
+	Next > 9, !.
+bestmove1(Next, Player, State, Current, Best) :-
+	move(Next, Player, State, State1), !,
+	opponent(Player, Opponent),
+	evaluate(Opponent, State1, Value1),
+	Value is ~Value1,
+	update(Current, move(Next, Value), New), !,
+	Next1 is Next+1,
+	bestmove1(Next1, Player, State, New, Best).
+bestmove1(Next, Player, State, Current, Best) :-
+	Next1 is Next+1,
+	bestmove1(Next1, Player, State, Current, Best).
+
+update(M1, M2, M2) :-
+	getval(M1, V1), getval(M2, V2), V1 < V2, !.
+update(M1, M2, M1).
+
+getval(move(_,V), V).	
+
+player(x).
+player(o).
+
+opponent(x, o).
+opponent(o, x).
+
+showboard(state(A,B,C,D,E,F,G,H,J)) :-
+	line(A,B,C),
+	write('-----------'), nl,
+	line(D,E,F),
+	write('-----------'), nl,
+	line(G,H,J).
+
+line(A,B,C) :-
+	write(' '), write(A),
+	write(' | '), write(B),
+	write(' | '), write(C), nl.
+
+init(state(b,b,b,b,b,b,b,b,b)).
+
+win(X, state(X,X,X,_,_,_,_,_,_)).
+win(X, state(_,_,_,X,X,X,_,_,_)).
+win(X, state(_,_,_,_,_,_,X,X,X)).
+win(X, state(X,_,_,X,_,_,X,_,_)).
+win(X, state(_,X,_,_,X,_,_,X,_)).
+win(X, state(_,_,X,_,_,X,_,_,X)).
+win(X, state(X,_,_,_,X,_,_,_,X)).
+win(X, state(_,_,X,_,X,_,X,_,_)).
+
+move(1, X, state(b,B,C,D,E,F,G,H,J),
+	   state(X,B,C,D,E,F,G,H,J)).
+move(2, X, state(A,b,C,D,E,F,G,H,J),
+	   state(A,X,C,D,E,F,G,H,J)).
+move(3, X, state(A,B,b,D,E,F,G,H,J),
+	   state(A,B,X,D,E,F,G,H,J)).
+move(4, X, state(A,B,C,b,E,F,G,H,J),
+	   state(A,B,C,X,E,F,G,H,J)).
+move(5, X, state(A,B,C,D,b,F,G,H,J),
+	   state(A,B,C,D,X,F,G,H,J)).
+move(6, X, state(A,B,C,D,E,b,G,H,J),
+	   state(A,B,C,D,E,X,G,H,J)).
+move(7, X, state(A,B,C,D,E,F,b,H,J),
+	   state(A,B,C,D,E,F,X,H,J)).
+move(8, X, state(A,B,C,D,E,F,G,b,J),
+	   state(A,B,C,D,E,F,G,X,J)).
+move(9, X, state(A,B,C,D,E,F,G,H,b),
+	   state(A,B,C,D,E,F,G,H,X)).

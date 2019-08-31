@@ -1,0 +1,30 @@
+/* Clocksin & Mellish p. 151. */
+
+gensym(Root, Atom) :-
+   get_num(Root, Num),
+   name(Root, Name1),
+   integer_name(Num, Name2),
+   append(Name1, Name2, Name),
+   name(Atom, Name).
+
+get_num(Root, Num) :-
+   /* this root encountered before */
+   retract(current_num(Root, Num1)), !,
+   Num is Num1 + 1,
+   asserta(current_num(Root, Num)).
+/* first time for this root */
+get_num(Root, 1) :- asserta(current_num(Root, 1)).
+
+/* Convert from an integer to a list of characters. */
+
+integer_name(Int, List) :- integer_name(Int, [], List).
+integer_name(I, Sofar, [C|Sofar]) :-
+   I < 10, !, C is I + "0".
+integer_name(I, Sofar, List) :-
+   Tophalf is I / 10,
+   Bothalf is I mod 10,
+   C is Bothalf + "0",
+   integer_name(Tophalf, [C|Sofar], List).
+
+append([], B, B) :- !.
+append([X|A], B, [X|C]) :- append(A, B, C).
